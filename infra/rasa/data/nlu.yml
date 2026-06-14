@@ -1,0 +1,26 @@
+version: "3.1"
+nlu:
+  - intent: greet
+    examples: |
+      - hi
+      - hello
+      - hey coach
+      - good morning
+  - intent: goodbye
+    examples: |
+      - bye
+      - goodbye
+      - see you
+      - that's all
+  - intent: ask_pipeline_status
+    examples: |
+      - how's my pipeline
+      - pipeline status
+      - what's my pipeline health
+      - show me the pipeline
+  - intent: ask_deal_help
+    examples: |
+      - help me with this deal
+      - what should I do next on this deal
+      - deal is stuck in negotiation
+      - how do I move this deal forward

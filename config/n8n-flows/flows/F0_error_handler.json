@@ -1,0 +1,33 @@
+{
+  "name": "F0 — Error Handler",
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "error_trigger",
+      "name": "On any flow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "parameters": {},
+      "position": [200, 300]
+    },
+    {
+      "id": "mm_alert",
+      "name": "Mattermost error alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_ERRORS}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \":rotating_light: Flow failed: \" + $json.workflow.name + \"\\nNode: \" + ($json.execution.lastNodeExecuted || \"unknown\") + \"\\nError: \" + ($json.execution.error ? $json.execution.error.message : \"unknown\") + \"\\nExecution: \" + $json.execution.id }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    }
+  ],
+  "connections": {
+    "On any flow error": { "main": [[{ "node": "Mattermost error alert", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "F2 — Friday Sweep",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron Fri 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "weeks", "triggerAtDay": [5], "triggerAtHour": 18 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "baserow_weekly",
+      "name": "Baserow — weekly submitted flag",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/weekly_reports/?filter__submitted__boolean=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    },
+    {
+      "id": "remind",
+      "name": "SMTP reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "parameters": {
+        "fromEmail": "={{$env.SMTP_FROM}}",
+        "toEmail": "={{$json.owner_email}}",
+        "subject": "Reminder: submit your weekly BD report",
+        "text": "Your weekly report flag is still N. Please submit before 19:00."
+      },
+      "position": [600, 300]
+    }
+  ],
+  "connections": {
+    "Cron Fri 18:00": { "main": [[{ "node": "Baserow — weekly submitted flag", "type": "main", "index": 0 }]] },
+    "Baserow — weekly submitted flag": { "main": [[{ "node": "SMTP reminder", "type": "main", "index": 0 }]] }
+  }
+}

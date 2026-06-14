@@ -1,0 +1,99 @@
+{
+  "name": "F6 — Commission Accrual",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron month-end +2 days",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "months", "triggerAtDayOfMonth": 2, "triggerAtHour": 9 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "commission",
+      "name": "Baserow — commission table",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/commission/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    },
+    {
+      "id": "calc",
+      "name": "Mirror commission math",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "jsCode": "// Replicate points_engine + tier formulas from bd-coach-config\nreturn $input.all().map(i => ({ json: { ...i.json, accrual: i.json.base * i.json.rate } }));"
+      },
+      "position": [600, 300]
+    },
+    {
+      "id": "idem_lookup",
+      "name": "Idempotency lookup (audit)",
+      "type": "n8n-nodes-base.postgres",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT 1 FROM audit.flow_runs WHERE flow_id = 'F6' AND status = 'commission_sent' AND meta->>'owner_email' = $1 AND meta->>'period' = to_char(now(), 'YYYY-MM') LIMIT 1",
+        "additionalFields": {
+          "queryParams": "={{$json.owner_email}}"
+        }
+      },
+      "position": [760, 300]
+    },
+    {
+      "id": "guard",
+      "name": "Skip if already sent",
+      "type": "n8n-nodes-base.if",
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{$items('Idempotency lookup (audit)').length}}", "operation": "equal", "value2": 0 }]
+        }
+      },
+      "position": [920, 300]
+    },
+    {
+      "id": "smtp",
+      "name": "SMTP personal statement",
+      "type": "n8n-nodes-base.emailSend",
+      "parameters": {
+        "fromEmail": "={{$env.SMTP_FROM}}",
+        "toEmail": "={{$json.owner_email}}",
+        "subject": "Commission accrual statement",
+        "text": "=Your accrual this period: {{$json.accrual}}"
+      },
+      "position": [1100, 240]
+    },
+    {
+      "id": "idem_record",
+      "name": "Record statement sent",
+      "type": "n8n-nodes-base.postgres",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit.flow_runs (flow_id, status, meta) VALUES ('F6', 'commission_sent', jsonb_build_object('owner_email', $1, 'period', to_char(now(), 'YYYY-MM')))",
+        "additionalFields": {
+          "queryParams": "={{$json.owner_email}}"
+        }
+      },
+      "position": [1300, 240]
+    }
+  ],
+  "connections": {
+    "Cron month-end +2 days": { "main": [[{ "node": "Baserow — commission table", "type": "main", "index": 0 }]] },
+    "Baserow — commission table": { "main": [[{ "node": "Mirror commission math", "type": "main", "index": 0 }]] },
+    "Mirror commission math": { "main": [[{ "node": "Idempotency lookup (audit)", "type": "main", "index": 0 }]] },
+    "Idempotency lookup (audit)": { "main": [[{ "node": "Skip if already sent", "type": "main", "index": 0 }]] },
+    "Skip if already sent": { "main": [[{ "node": "SMTP personal statement", "type": "main", "index": 0 }], []] },
+    "SMTP personal statement": { "main": [[{ "node": "Record statement sent", "type": "main", "index": 0 }]] }
+  }
+}

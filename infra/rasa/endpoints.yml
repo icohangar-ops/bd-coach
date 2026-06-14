@@ -1,0 +1,3 @@
+# Action server / tracker store endpoints. Defaults are fine for the bundled stack.
+# action_endpoint:
+#   url: "http://action-server:5055/webhook"

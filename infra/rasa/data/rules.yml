@@ -1,0 +1,22 @@
+version: "3.1"
+rules:
+  - rule: greet
+    steps:
+      - intent: greet
+      - action: utter_greet
+  - rule: goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
+  - rule: pipeline status
+    steps:
+      - intent: ask_pipeline_status
+      - action: utter_pipeline_status
+  - rule: deal help
+    steps:
+      - intent: ask_deal_help
+      - action: utter_deal_help
+  - rule: fallback
+    steps:
+      - intent: nlu_fallback
+      - action: utter_default

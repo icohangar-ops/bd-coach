@@ -1,0 +1,100 @@
+{
+  "name": "F1 — Weekly Template Push",
+  "active": true,
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Singapore", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron Mon 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "weeks", "triggerAtDay": [1], "triggerAtHour": 9 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "personas",
+      "name": "Load personas",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "parameters": { "filePath": "/config/personas/personas.yaml" },
+      "position": [400, 300]
+    },
+    {
+      "id": "baserow_pipeline",
+      "name": "Baserow — open deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/{{$env.BASEROW_TABLE_PIPELINE}}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [600, 300]
+    },
+    {
+      "id": "render",
+      "name": "Render weekly template",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "jsCode": "// Group deals by owner; render HTML per persona\nconst rows = $input.all();\nreturn rows.map(r => ({ json: { email: r.json.owner_email, html: r.json.html } }));"
+      },
+      "position": [800, 300]
+    },
+    {
+      "id": "smtp",
+      "name": "SMTP send",
+      "type": "n8n-nodes-base.emailSend",
+      "parameters": {
+        "fromEmail": "={{$env.SMTP_FROM}}",
+        "toEmail": "={{$json.email}}",
+        "subject": "Your weekly BD template",
+        "emailFormat": "html",
+        "html": "={{$json.html}}"
+      },
+      "position": [1000, 300]
+    },
+    {
+      "id": "mm_dm",
+      "name": "Mattermost DM card",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_F1}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \"Weekly template ready — check your email or open BD Coach.\" }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1200, 300]
+    },
+    {
+      "id": "audit",
+      "name": "Audit log",
+      "type": "n8n-nodes-base.postgres",
+      "parameters": {
+        "operation": "insert",
+        "schema": "audit",
+        "table": "flow_runs",
+        "columns": "flow_id,status,meta"
+      },
+      "position": [1400, 300]
+    }
+  ],
+  "connections": {
+    "Cron Mon 09:00": { "main": [[{ "node": "Load personas", "type": "main", "index": 0 }]] },
+    "Load personas": { "main": [[{ "node": "Baserow — open deals", "type": "main", "index": 0 }]] },
+    "Baserow — open deals": { "main": [[{ "node": "Render weekly template", "type": "main", "index": 0 }]] },
+    "Render weekly template": { "main": [[{ "node": "SMTP send", "type": "main", "index": 0 }]] },
+    "SMTP send": { "main": [[{ "node": "Mattermost DM card", "type": "main", "index": 0 }]] },
+    "Mattermost DM card": { "main": [[{ "node": "Audit log", "type": "main", "index": 0 }]] }
+  }
+}

@@ -174,7 +174,7 @@ Update `litellm/config.yaml` model names if you use `llama3.2:3b` instead of `ll
 ## 8. Import n8n flows
 
 1. `https://n8n.yourdomain.com`
-2. Settings → Import → `n8n-flows/flows/*.json`
+2. Settings → Import → `config/n8n-flows/flows/*.json`
 3. Add SMTP credential + activate flows
 
 ---

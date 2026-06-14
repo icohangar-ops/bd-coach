@@ -222,7 +222,7 @@ services:
       BD_COACH_DOMAIN: ${BD_COACH_DOMAIN}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     volumes:
-      - ../../n8n-flows/flows:/flows:ro
+      - ../../config/n8n-flows/flows:/flows:ro
       - ../../config:/config:ro
     networks: [bdcoach]
     labels:

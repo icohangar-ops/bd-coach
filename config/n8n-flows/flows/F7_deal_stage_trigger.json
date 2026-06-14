@@ -1,0 +1,111 @@
+{
+  "name": "F7 — Deal-Stage Trigger",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Baserow webhook",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": {
+        "path": "baserow-deal-stage",
+        "httpMethod": "POST",
+        "authentication": "headerAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "baserow_webhook_secret", "name": "Baserow webhook header secret" }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "filter",
+      "name": "Stage SSA or Deposit",
+      "type": "n8n-nodes-base.if",
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.stage}}",
+              "operation": "regex",
+              "value2": "^(SSA|Deposit)$"
+            }
+          ]
+        }
+      },
+      "position": [400, 300]
+    },
+    {
+      "id": "points",
+      "name": "Update points",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/{{$env.BASEROW_TABLE_PIPELINE}}/{{$json.body.row_id}}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [600, 200]
+    },
+    {
+      "id": "mm_congrats",
+      "name": "Mattermost congrats card",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_F7}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \"Deal moved to \" + $json.body.stage + \" — points updated.\" }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [800, 200]
+    },
+    {
+      "id": "ceo_alert",
+      "name": "CEO alert if value > 5M",
+      "type": "n8n-nodes-base.if",
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.body.value}}",
+              "operation": "larger",
+              "value2": 5000000
+            }
+          ]
+        }
+      },
+      "position": [1000, 200]
+    },
+    {
+      "id": "mm_ceo",
+      "name": "Mattermost CEO large deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_CEO_DIGEST}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \"Large deal alert: \" + $json.body.deal_name }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [1200, 100]
+    }
+  ],
+  "connections": {
+    "Baserow webhook": { "main": [[{ "node": "Stage SSA or Deposit", "type": "main", "index": 0 }]] },
+    "Stage SSA or Deposit": { "main": [[{ "node": "Update points", "type": "main", "index": 0 }], []] },
+    "Update points": { "main": [[{ "node": "Mattermost congrats card", "type": "main", "index": 0 }]] },
+    "Mattermost congrats card": { "main": [[{ "node": "CEO alert if value > 5M", "type": "main", "index": 0 }]] },
+    "CEO alert if value > 5M": { "main": [[{ "node": "Mattermost CEO large deal", "type": "main", "index": 0 }], []] }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "F5 — CEO Monday Digest",
+  "active": true,
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Singapore", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron Mon 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "weeks", "triggerAtDay": [1], "triggerAtHour": 8 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "aggregate",
+      "name": "Aggregate exceptions",
+      "type": "n8n-nodes-base.code",
+      "parameters": {
+        "jsCode": "// T08 spec: 5 bullets per BD from Baserow + audit tables\nreturn [{ json: { digest: 'Exception summary placeholder — wire to Baserow scorecard' } }];"
+      },
+      "position": [400, 300]
+    },
+    {
+      "id": "smtp",
+      "name": "SMTP to CEO",
+      "type": "n8n-nodes-base.emailSend",
+      "parameters": {
+        "fromEmail": "={{$env.SMTP_FROM}}",
+        "toEmail": "ceo@example.org",
+        "subject": "BD Coach — Monday exception digest",
+        "text": "={{$json.digest}}"
+      },
+      "position": [600, 300]
+    },
+    {
+      "id": "mm_ceo",
+      "name": "Mattermost CEO digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_CEO_DIGEST}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": $json.digest }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Cron Mon 08:00": { "main": [[{ "node": "Aggregate exceptions", "type": "main", "index": 0 }]] },
+    "Aggregate exceptions": { "main": [[{ "node": "SMTP to CEO", "type": "main", "index": 0 }]] },
+    "SMTP to CEO": { "main": [[{ "node": "Mattermost CEO digest", "type": "main", "index": 0 }]] }
+  }
+}

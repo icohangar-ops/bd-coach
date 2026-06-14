@@ -1,0 +1,53 @@
+{
+  "name": "F3 — Hygiene Audit",
+  "active": true,
+  "settings": { "executionOrder": "v1", "timezone": "UTC", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron daily 02:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "days", "triggerAtHour": 2 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "baserow_stale",
+      "name": "Baserow — stale deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/{{$env.BASEROW_TABLE_PIPELINE}}/?filter__updated_at__date_before={{ $now.minus({days: 2}).toISO() }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    },
+    {
+      "id": "mm_card",
+      "name": "Mattermost hygiene card",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_F3}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \"CRM hygiene: \" + $json.count + \" deals not updated in 48h\" }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [600, 300]
+    }
+  ],
+  "connections": {
+    "Cron daily 02:00 UTC": { "main": [[{ "node": "Baserow — stale deals", "type": "main", "index": 0 }]] },
+    "Baserow — stale deals": { "main": [[{ "node": "Mattermost hygiene card", "type": "main", "index": 0 }]] }
+  }
+}

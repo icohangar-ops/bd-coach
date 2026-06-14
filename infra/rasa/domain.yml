@@ -1,0 +1,21 @@
+version: "3.1"
+intents:
+  - greet
+  - goodbye
+  - ask_pipeline_status
+  - ask_deal_help
+  - nlu_fallback
+responses:
+  utter_greet:
+    - text: "Hi — I'm your BD Coach. Ask me about your pipeline or a deal."
+  utter_goodbye:
+    - text: "Talk soon. Keep the pipeline moving."
+  utter_pipeline_status:
+    - text: "I can summarize your pipeline health — connect the deal data source to see live numbers."
+  utter_deal_help:
+    - text: "Tell me the deal stage and I'll suggest the next best action."
+  utter_default:
+    - text: "Sorry, I didn't catch that. Try asking about your pipeline or a specific deal."
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

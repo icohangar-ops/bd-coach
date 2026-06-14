@@ -1,0 +1,18 @@
+{
+  "uid": "bd-coach-overview",
+  "title": "BD Coach — Stack Overview",
+  "tags": ["bd-coach"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Up Targets",
+     "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+     "targets": [{"expr": "count(up == 1)", "refId": "A"}]},
+    {"id": 2, "type": "timeseries", "title": "Scrape Target Health",
+     "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+     "targets": [{"expr": "up", "refId": "A"}]}
+  ]
+}

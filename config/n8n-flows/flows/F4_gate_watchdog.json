@@ -1,0 +1,65 @@
+{
+  "name": "F4 — Gate Watchdog",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron last working day 17:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "months", "triggerAtDayOfMonth": 28, "triggerAtHour": 17 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "scorecard",
+      "name": "Baserow — scorecard points",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://data.{{$env.BD_COACH_DOMAIN}}/api/database/rows/table/scorecard/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Token {{$env.BASEROW_TOKEN}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    },
+    {
+      "id": "filter",
+      "name": "Points below 25",
+      "type": "n8n-nodes-base.if",
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{$json.points_mtd}}", "operation": "smaller", "value2": 25 }]
+        }
+      },
+      "position": [600, 300]
+    },
+    {
+      "id": "mm_alert",
+      "name": "Mattermost gate miss card",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://chat.{{$env.BD_COACH_DOMAIN}}/hooks/{{$env.MM_HOOK_F4}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"text\": \"Gate risk: \" + $json.owner + \" at \" + $json.points_mtd + \" pts MTD\" }"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [800, 200]
+    }
+  ],
+  "connections": {
+    "Cron last working day 17:00": { "main": [[{ "node": "Baserow — scorecard points", "type": "main", "index": 0 }]] },
+    "Baserow — scorecard points": { "main": [[{ "node": "Points below 25", "type": "main", "index": 0 }]] },
+    "Points below 25": { "main": [[{ "node": "Mattermost gate miss card", "type": "main", "index": 0 }], []] }
+  }
+}

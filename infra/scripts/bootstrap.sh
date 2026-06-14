@@ -46,7 +46,7 @@ echo "    bd_pipeline, activity_log, weekly_reports, scorecard, commission"
 echo "    Export table IDs into BASEROW_TABLE_PIPELINE and BASEROW_TABLE_ACTIVITY"
 
 echo "==> Import n8n flows:"
-echo "    Settings → Import from file → n8n-flows/flows/*.json"
+echo "    Settings → Import from file → config/n8n-flows/flows/*.json"
 
 echo "==> DLP rule tests..."
 python3 ../config/dlp/run_tests.py

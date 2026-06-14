@@ -1,0 +1,59 @@
+{
+  "name": "F8 — Monthly 1-pager",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "F0 — Error Handler" },
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Cron month-end +1 day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": { "interval": [{ "field": "months", "triggerAtDayOfMonth": 1, "triggerAtHour": 10 }] }
+      },
+      "position": [200, 300]
+    },
+    {
+      "id": "librechat",
+      "name": "LibreChat tool call",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "=https://bd-coach.{{$env.BD_COACH_DOMAIN}}/api/agents/bd-coach/tools/monthly_1pager",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.LITELLM_MASTER_KEY}}" }]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [400, 300]
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud WebDAV upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://files.{{$env.BD_COACH_DOMAIN}}/remote.php/dav/files/{{$env.NEXTCLOUD_USER}}/BD/Board/monthly-{{$now.format('yyyy-MM')}}.docx",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "position": [600, 300]
+    }
+  ],
+  "connections": {
+    "Cron month-end +1 day": { "main": [[{ "node": "LibreChat tool call", "type": "main", "index": 0 }]] },
+    "LibreChat tool call": { "main": [[{ "node": "Nextcloud WebDAV upload", "type": "main", "index": 0 }]] }
+  }
+}
