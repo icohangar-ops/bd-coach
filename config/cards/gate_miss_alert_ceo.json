@@ -1,0 +1,19 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Gate MISS — ${persona} · ${month}", "weight": "Bolder", "size": "Large", "color": "Attention" },
+    { "type": "FactSet", "facts": [
+      { "title": "Points",         "value": "${points} / 25" },
+      { "title": "Consecutive miss","value": "${consecutiveMisses}" },
+      { "title": "Last action",    "value": "${lastAction}" },
+      { "title": "Trigger",        "value": "${trigger}" }
+    ]}
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "Acknowledge",   "data": { "verb": "ack_gate_miss",     "persona": "${persona}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Draft note",    "data": { "verb": "draft_perf_note",   "persona": "${persona}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Schedule call", "data": { "verb": "schedule_call",     "persona": "${persona}", "idempotency_key": "${idempotencyKey}" } }
+  ]
+}

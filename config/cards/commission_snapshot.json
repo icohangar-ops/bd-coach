@@ -1,0 +1,20 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Commission Snapshot — ${persona}", "weight": "Bolder", "size": "Large" },
+    { "type": "FactSet", "facts": [
+      { "title": "Base",          "value": "${base}" },
+      { "title": "Tier 1 accrued","value": "${tier1}" },
+      { "title": "Tier 2 accrued","value": "${tier2}" },
+      { "title": "Tier 3 (KPI)",  "value": "${tier3}" },
+      { "title": "Total accrued", "value": "${totalAccrued}" },
+      { "title": "% to OTE",      "value": "${pctToOte}" }
+    ]}
+  ],
+  "actions": [
+    { "type": "Action.OpenUrl", "title": "Open Excel",   "url": "${excelUrl}" },
+    { "type": "Action.Submit",  "title": "Email me PDF", "data": { "verb": "email_commission_pdf", "idempotency_key": "${idempotencyKey}" } }
+  ]
+}

@@ -1,0 +1,15 @@
+when:
+  - event: push
+    branch: main
+
+steps:
+  lint:
+    image: cytopia/yamllint:latest
+    commands:
+      - yamllint -s .
+
+  dlp-rules-test:
+    image: python:3.12-slim
+    commands:
+      - pip install pyyaml
+      - python dlp/run_tests.py

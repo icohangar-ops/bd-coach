@@ -1,0 +1,76 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  config:
+    name: Validate config/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install pyyaml
+      - name: Validate JSON + YAML parse (config/)
+        run: |
+          python - <<'PYEOF'
+          import json, sys, pathlib
+          import yaml
+          bad = []
+          root = pathlib.Path('config')
+          for p in sorted(root.rglob('*')):
+              if not p.is_file():
+                  continue
+              try:
+                  if p.suffix == '.json':
+                      json.loads(p.read_text())
+                  elif p.suffix in ('.yaml', '.yml'):
+                      list(yaml.safe_load_all(p.read_text()))
+              except Exception as e:
+                  bad.append(f"{p}: {e}")
+          print("\n".join(bad) if bad else "config/ JSON+YAML OK")
+          sys.exit(1 if bad else 0)
+          PYEOF
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: config
+      - name: DLP rule tests
+        run: python config/dlp/run_tests.py
+
+  infra:
+    name: Validate infra/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile-check Python (infra/)
+        run: |
+          python - <<'PYEOF'
+          import ast, os, sys
+          bad = []
+          SKIP = {'.git','node_modules','venv','.venv','target','dist','build','__pycache__','notebooks'}
+          for root, dirs, files in os.walk('infra'):
+              dirs[:] = [d for d in dirs if d not in SKIP]
+              for f in files:
+                  if f.endswith('.py'):
+                      p = os.path.join(root, f)
+                      try:
+                          ast.parse(open(p,'rb').read(), filename=p)
+                      except SyntaxError as e:
+                          bad.append(f"{p}:{e.lineno}: {e.msg}")
+          print("\n".join(bad) if bad else "infra/ Python OK")
+          sys.exit(1 if bad else 0)
+          PYEOF
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: infra
+      - name: Compose validate
+        working-directory: infra
+        run: docker compose -f compose/docker-compose.yml --env-file .env.example config -q

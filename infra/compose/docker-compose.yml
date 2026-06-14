@@ -1,0 +1,323 @@
+version: "3.9"
+
+# BD Coach — fully OSS stack. Run from infra/.
+# docker compose -f compose/docker-compose.yml --env-file .env up -d
+
+networks:
+  bdcoach:
+    driver: bridge
+
+volumes:
+  pg_data: {}
+  mongo_data: {}
+  qdrant_data: {}
+  mm_data: {}
+  mm_logs: {}
+  mm_config: {}
+  mm_plugins: {}
+  vault_data: {}
+  oo_data: {}
+  grafana_data: {}
+  prom_data: {}
+  minio_data: {}
+  nextcloud_data: {}
+  baserow_data: {}
+  ollama_data: {}
+  keycloak_data: {}
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports: ["80:80", "443:443"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+    networks: [bdcoach]
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bdcoach
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: librechat,n8n,mattermost,audit,keycloak,baserow
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [bdcoach]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bdcoach"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    volumes: [mongo_data:/data/db]
+    networks: [bdcoach]
+
+  redis:
+    image: redis:7-alpine
+    networks: [bdcoach]
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    volumes: [qdrant_data:/qdrant/storage]
+    networks: [bdcoach]
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: bdcoach
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes: [minio_data:/data]
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio.rule=Host(`minio.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.minio.tls.certresolver=le
+      - traefik.http.services.minio.loadbalancer.server.port=9000
+
+  vault:
+    image: hashicorp/vault:1.17
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_ROOT_TOKEN}
+      VAULT_ADDR: http://0.0.0.0:8200
+    volumes: [vault_data:/vault/file]
+    networks: [bdcoach]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev --import-realm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: bdcoach
+      KC_DB_PASSWORD: ${PG_PASSWORD}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: auth.${BD_COACH_DOMAIN}
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: "true"
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - keycloak_data:/opt/keycloak/data
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.keycloak.rule=Host(`auth.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.keycloak.tls.certresolver=le
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes: [ollama_data:/root/.ollama]
+    environment:
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+    networks: [bdcoach]
+    # CPU inference by default. For NVIDIA GPU hosts, also pass:
+    #   -f compose/docker-compose.gpu.yml
+
+  litellm:
+    # Extends the stock LiteLLM image to install the hook deps
+    # (cubiczan-resilience + asyncpg) declared in ../litellm/requirements.txt.
+    build:
+      context: ../litellm
+      dockerfile: Dockerfile
+    image: bd-coach/litellm:hooks
+    depends_on: [postgres, redis, ollama]
+    environment:
+      DATABASE_URL: postgres://bdcoach:${PG_PASSWORD}@postgres:5432/litellm
+      AUDIT_DATABASE_URL: postgres://bdcoach:${PG_PASSWORD}@postgres:5432/audit
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OLLAMA_API_BASE: http://ollama:11434
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    volumes:
+      - ../litellm/config.yaml:/app/config.yaml:ro
+      - ../litellm/hooks:/app/hooks:ro
+      - ../../config/dlp:/dlp:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.litellm.rule=Host(`api.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.litellm.tls.certresolver=le
+      - traefik.http.services.litellm.loadbalancer.server.port=4000
+
+  rasa:
+    image: rasa/rasa:3.6.20-full
+    volumes:
+      - ../../config/topics:/app/topics:ro
+      - ../rasa:/app
+    command: ["run", "--enable-api", "--cors", "*", "--port", "5005"]
+    networks: [bdcoach]
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    depends_on: [mongo, postgres, redis, litellm, rasa, keycloak]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3080
+      MONGO_URI: mongodb://mongo:27017/librechat
+      OPENAI_REVERSE_PROXY: http://litellm:4000/v1
+      OPENID_ISSUER: https://auth.${BD_COACH_DOMAIN}/realms/bd-coach
+      OPENID_CLIENT_ID: librechat
+      OPENID_CLIENT_SECRET: ${KEYCLOAK_LIBRECHAT_SECRET}
+      OPENID_CALLBACK_URL: https://bd-coach.${BD_COACH_DOMAIN}/oauth/openid/callback
+      ALLOW_REGISTRATION: "false"
+      ALLOW_SOCIAL_LOGIN: "true"
+    volumes:
+      - ../../config:/config:ro
+      - ../librechat/librechat.yaml:/app/librechat.yaml:ro
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.librechat.rule=Host(`bd-coach.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.librechat.tls.certresolver=le
+      - traefik.http.services.librechat.loadbalancer.server.port=3080
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: bdcoach
+      DB_POSTGRESDB_PASSWORD: ${PG_PASSWORD}
+      N8N_HOST: n8n.${BD_COACH_DOMAIN}
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${BD_COACH_DOMAIN}/
+      GENERIC_TIMEZONE: ${TIMEZONE:-UTC}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      BASEROW_TOKEN: ${BASEROW_TOKEN}
+      BASEROW_TABLE_PIPELINE: ${BASEROW_TABLE_PIPELINE}
+      BASEROW_TABLE_ACTIVITY: ${BASEROW_TABLE_ACTIVITY}
+      NEXTCLOUD_URL: https://files.${BD_COACH_DOMAIN}
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER}
+      NEXTCLOUD_APP_PASSWORD: ${NEXTCLOUD_APP_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      MM_HOOK_F1: ${MM_HOOK_F1}
+      MM_HOOK_F3: ${MM_HOOK_F3}
+      MM_HOOK_F4: ${MM_HOOK_F4}
+      MM_HOOK_F7: ${MM_HOOK_F7}
+      MM_HOOK_CEO_DIGEST: ${MM_HOOK_CEO_DIGEST}
+      BD_COACH_DOMAIN: ${BD_COACH_DOMAIN}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    volumes:
+      - ../../n8n-flows/flows:/flows:ro
+      - ../../config:/config:ro
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.n8n.rule=Host(`n8n.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.n8n.tls.certresolver=le
+      - traefik.http.services.n8n.loadbalancer.server.port=5678
+
+  mattermost:
+    image: mattermost/mattermost-team-edition:9-release
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://bdcoach:${PG_PASSWORD}@postgres:5432/mattermost?sslmode=disable
+      MM_SERVICESETTINGS_SITEURL: https://chat.${BD_COACH_DOMAIN}
+    volumes:
+      - mm_data:/mattermost/data
+      - mm_logs:/mattermost/logs
+      - mm_config:/mattermost/config
+      - mm_plugins:/mattermost/plugins
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mm.rule=Host(`chat.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.mm.tls.certresolver=le
+      - traefik.http.services.mm.loadbalancer.server.port=8065
+
+  baserow:
+    image: baserow/baserow:1.27.2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BASEROW_PUBLIC_URL: https://data.${BD_COACH_DOMAIN}
+      DATABASE_URL: postgresql://bdcoach:${PG_PASSWORD}@postgres:5432/baserow
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${BASEROW_SECRET_KEY}
+    volumes: [baserow_data:/baserow/data]
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.baserow.rule=Host(`data.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.baserow.tls.certresolver=le
+      - traefik.http.services.baserow.loadbalancer.server.port=80
+
+  nextcloud:
+    image: nextcloud:29-apache
+    depends_on: [postgres]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: bdcoach
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      NEXTCLOUD_TRUSTED_DOMAINS: files.${BD_COACH_DOMAIN}
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: files.${BD_COACH_DOMAIN}
+    volumes: [nextcloud_data:/var/www/html]
+    networks: [bdcoach]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nextcloud.rule=Host(`files.${BD_COACH_DOMAIN}`)
+      - traefik.http.routers.nextcloud.tls.certresolver=le
+      - traefik.http.services.nextcloud.loadbalancer.server.port=80
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    environment:
+      WHISPER__MODEL: base
+      WHISPER__INFERENCE_DEVICE: cpu
+    networks: [bdcoach]
+
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    environment:
+      ZO_ROOT_USER_EMAIL: ${OO_ADMIN_EMAIL}
+      ZO_ROOT_USER_PASSWORD: ${OO_PASSWORD}
+    volumes: [oo_data:/data]
+    networks: [bdcoach]
+
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    networks: [bdcoach]
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../observability/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks: [bdcoach]

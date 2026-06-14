@@ -1,0 +1,20 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Stale Deal — ${account}", "weight": "Bolder", "size": "Large" },
+    { "type": "FactSet", "facts": [
+      { "title": "Stage",            "value": "${stage}" },
+      { "title": "Days since update","value": "${daysSinceUpdate}" },
+      { "title": "Value (USD)",      "value": "${value}" },
+      { "title": "Last action",      "value": "${lastAction}" },
+      { "title": "Suggested",        "value": "${suggested}" }
+    ]}
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "Email contact",   "data": { "verb": "email_contact",   "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Reschedule",      "data": { "verb": "reschedule",      "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Mark dormant",    "data": { "verb": "mark_dormant",    "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" }, "style": "destructive" }
+  ]
+}

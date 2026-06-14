@@ -1,0 +1,20 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Stage moved — ${account}", "weight": "Bolder", "size": "Large", "color": "Good" },
+    { "type": "FactSet", "facts": [
+      { "title": "From",         "value": "${fromStage}" },
+      { "title": "To",           "value": "${toStage}" },
+      { "title": "Points gained","value": "${pointsGained}" },
+      { "title": "Stream",       "value": "${stream}" },
+      { "title": "Value (USD)",  "value": "${value}" }
+    ]}
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "Congrats",     "data": { "verb": "congrats",     "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Open deal",    "data": { "verb": "open_deal",    "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Notify CEO",   "data": { "verb": "notify_ceo",   "dealId": "${dealId}", "idempotency_key": "${idempotencyKey}" } }
+  ]
+}

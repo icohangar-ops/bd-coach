@@ -1,0 +1,34 @@
+# Restricted-HR-Comp DLP rules.
+# Applied by LiteLLM post-call hook. Outbound responses to non-CEO personas are blocked if any
+# `block_for_non_ceo` pattern matches.
+
+version: 2.0
+rules:
+  block_for_non_ceo:
+    - id: salary_amount
+      pattern: '(?i)(?:base|annual)\s+salary\b[^\n]{0,40}?[\$€£]\s*\d{2,3}[,\.]?\d{3}'
+      example: "base salary is $100,000"
+    - id: contract_step
+      pattern: '(?i)\bstep\s*(1|2|one|two)\b.*(salary review|termination|improvement plan)'
+    - id: termination_language
+      pattern: '(?i)(termination|terminate employment|notice of termination|grounds for termination)'
+    - id: other_bd_commission
+      pattern: '(?i)(other bd|colleague|peer).{0,40}(commission|accrual|ote|earned)'
+    - id: ote_other_persona
+      pattern: '(?i)\bOTE\b.{0,30}[\$€£]\s*\d{3}[,\.]?\d{3}'
+    - id: contract_clause
+      pattern: '(?i)(section\s*3.*gate clause|tier-3\s*gate clause|consecutive\s*month.*<\s*25)'
+
+  warn_log_only:
+    - id: pii_email
+      pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+    - id: phone_number
+      pattern: '\+?\d{1,3}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{3,4}[\s\-]?\d{3,4}'
+
+action_on_block:
+  response_to_user: "That's outside your data scope. If you need it, ask the CEO."
+  audit_event: dlp.block
+  notify: "#bd-coach-build"
+
+action_on_warn:
+  audit_event: dlp.warn

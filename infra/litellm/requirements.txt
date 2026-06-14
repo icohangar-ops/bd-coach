@@ -1,0 +1,5 @@
+# Extra Python deps for the LiteLLM proxy hooks (installed into the litellm image).
+# Resilience primitives (atomic_write, @resilient) used by the audit hook.
+cubiczan-resilience @ git+https://github.com/icohangar-ops/cubiczan-resilience.git#subdirectory=python
+# Direct Postgres writes from the audit hook to audit.events.
+asyncpg>=0.29

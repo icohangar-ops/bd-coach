@@ -1,0 +1,78 @@
+# Persona → Keycloak user mapping. Resolved at session start from OIDC `email` claim.
+# Groups in Keycloak: ceo, bd-usa, bd-eu
+
+version: 2.0
+personas:
+  CEO:
+    email: ceo@example.org
+    keycloak_group: ceo
+    display_name: Chief Executive
+    scopes:
+      read:
+        - baserow.table.bd_pipeline:*
+        - baserow.table.activity_log:*
+        - nextcloud:/BD/**
+        - baserow.table.scorecard:*
+        - baserow.table.commission:*
+        - caldav:/me/calendar
+        - transcripts:/BD/Transcripts/**
+        - kb:reference/*
+        - kpi:BD_KPIs_USA.md
+        - kpi:BD_KPIs_EU.md
+      write:
+        - nextcloud:/BD/HR/Drafts/**
+        - nextcloud:/BD/Board/**
+      forbidden: []
+
+  USA_BD:
+    email: bd-usa@example.org
+    keycloak_group: bd-usa
+    display_name: BD — Americas
+    region: Americas
+    scopes:
+      read:
+        - baserow.table.bd_pipeline:owner=bd-usa
+        - baserow.table.activity_log:owner=bd-usa
+        - nextcloud:/BD/2026/Americas/**
+        - baserow.table.weekly_reports:region=americas
+        - baserow.table.commission:owner=bd-usa
+        - caldav:/me/calendar
+        - transcripts:/BD/Transcripts/owner=bd-usa
+        - kb:reference/*
+        - kpi:BD_KPIs_USA.md
+      write:
+        - baserow.table.weekly_reports:region=americas
+        - baserow.table.activity_log:owner=bd-usa
+      forbidden:
+        - "*EU_BD*"
+        - "*ceo_inbox*"
+        - "*salary*"
+        - "*commission_other*"
+
+  EU_BD:
+    email: bd-eu@example.org
+    keycloak_group: bd-eu
+    display_name: BD — EMEA
+    region: EMEA
+    scopes:
+      read:
+        - baserow.table.bd_pipeline:owner=bd-eu
+        - baserow.table.activity_log:owner=bd-eu
+        - nextcloud:/BD/2026/EMEA/**
+        - baserow.table.weekly_reports:region=emea
+        - baserow.table.commission:owner=bd-eu
+        - caldav:/me/calendar
+        - transcripts:/BD/Transcripts/owner=bd-eu
+        - kb:reference/*
+        - kpi:BD_KPIs_EU.md
+      write:
+        - baserow.table.weekly_reports:region=emea
+        - baserow.table.activity_log:owner=bd-eu
+      forbidden:
+        - "*USA_BD*"
+        - "*ceo_inbox*"
+        - "*salary*"
+        - "*commission_other*"
+
+refusal_message: "That's outside your data scope. If you need it, ask the CEO."
+unknown_persona_message: "Unknown persona. Contact your platform administrator."

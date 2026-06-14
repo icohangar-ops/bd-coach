@@ -1,0 +1,21 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Weekly Report — Draft Ready", "weight": "Bolder", "size": "Large" },
+    { "type": "TextBlock", "text": "Week ending ${weekEnding} · ${persona}", "isSubtle": true },
+    { "type": "FactSet", "facts": [
+      { "title": "Pipeline moves", "value": "${pipelineMoves}" },
+      { "title": "Meetings logged", "value": "${meetings}" },
+      { "title": "Points this week", "value": "${pointsThisWeek}" },
+      { "title": "MTD points", "value": "${mtdPoints}" },
+      { "title": "Risks", "value": "${risks}" }
+    ]}
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "Submit",  "data": { "verb": "submit_weekly",  "draftId": "${draftId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Edit",    "data": { "verb": "edit_weekly",    "draftId": "${draftId}", "idempotency_key": "${idempotencyKey}" } },
+    { "type": "Action.Submit", "title": "Discard", "data": { "verb": "discard_weekly", "draftId": "${draftId}", "idempotency_key": "${idempotencyKey}" }, "style": "destructive" }
+  ]
+}

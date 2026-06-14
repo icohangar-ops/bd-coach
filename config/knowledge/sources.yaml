@@ -1,0 +1,112 @@
+# 9 knowledge sources — OSS connector manifest.
+# Resilience defaults: every source carries machine-readable timeout_s,
+# max_retries, retry_backoff_s, and fallback so the consuming runtime has
+# explicit resilience parameters rather than relying on implicit defaults.
+version: 2.0
+sources:
+  - id: 1
+    name: Baserow — BD Pipeline
+    type: baserow_rest
+    endpoint: https://data.${BD_COACH_DOMAIN}/api/database/rows/table/${BASEROW_TABLE_PIPELINE}/
+    scope: per_bd_owner_filter
+    refresh: webhook_realtime
+    secret_ref: vault://baserow/api_token
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: last_known_good
+
+  - id: 2
+    name: Nextcloud — /BD/2026/
+    type: nextcloud_webdav
+    path: /remote.php/dav/files/bd-coach/BD/2026/
+    scope: { CEO: all, BDs: own_subfolder }
+    refresh: 15m
+    rag_index: qdrant://bd_documents
+    timeout_s: 15
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: cached_index
+
+  - id: 3
+    name: Baserow — Sales dashboard tables
+    type: baserow_rest
+    tables: [weekly_reports, scorecard, commission, points_engine, cadence]
+    scope: per_table_acl
+    refresh: 1h
+    acl:
+      CEO: ["*"]
+      USA_BD: [weekly_reports:americas, scorecard, commission, points_engine, cadence]
+      EU_BD:  [weekly_reports:emea,  scorecard, commission, points_engine, cadence]
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: last_known_good
+
+  - id: 4
+    name: BD_KPIs_USA.md
+    type: nextcloud_webdav
+    path: /BD/Contracts/BD_KPIs_USA.md
+    scope: [CEO, USA_BD]
+    refresh: on_change
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: cached_index
+
+  - id: 5
+    name: BD_KPIs_EU.md
+    type: nextcloud_webdav
+    path: /BD/Contracts/BD_KPIs_EU.md
+    scope: [CEO, EU_BD]
+    refresh: on_change
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: cached_index
+
+  - id: 6
+    name: Calendars
+    type: nextcloud_caldav
+    endpoint: /remote.php/dav/calendars/
+    scope: per_user_delegated
+    refresh: realtime
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: skip
+
+  - id: 7
+    name: Meeting transcripts
+    type: whisper_ingest
+    path: /BD/Transcripts/
+    scope: per_user_delegated
+    refresh: per_upload
+    service: http://whisper:9000/v1/audio/transcriptions
+    timeout_s: 120
+    max_retries: 2
+    retry_backoff_s: 2.0
+    fallback: queue_for_retry
+
+  - id: 8
+    name: Reference library
+    type: nextcloud_webdav
+    path: /BD/Reference/
+    scope: shared_read
+    refresh: on_change
+    rag_index: qdrant://bd_reference
+    timeout_s: 15
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: cached_index
+
+  - id: 9
+    name: Baserow — Activity Log
+    type: baserow_rest
+    endpoint: https://data.${BD_COACH_DOMAIN}/api/database/rows/table/${BASEROW_TABLE_ACTIVITY}/
+    scope: per_bd_owner_filter
+    refresh: webhook_realtime
+    timeout_s: 10
+    max_retries: 2
+    retry_backoff_s: 1.0
+    fallback: last_known_good

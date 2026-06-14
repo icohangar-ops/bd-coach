@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose validate
+        run: docker compose -f compose/docker-compose.yml --env-file .env.example config -q
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          severity: CRITICAL,HIGH
+
+  mirror-codeberg:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Mirror to Codeberg
+        env:
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+          CODEBERG_ORG: ${{ vars.CODEBERG_ORG }}
+        run: |
+          if [[ -z "${CODEBERG_TOKEN}" || -z "${CODEBERG_ORG}" ]]; then
+            echo "CODEBERG_TOKEN or CODEBERG_ORG not set — skip mirror"
+            exit 0
+          fi
+          git remote add codeberg "https://${CODEBERG_TOKEN}@codeberg.org/${CODEBERG_ORG}/bd-coach-infra.git" 2>/dev/null || \
+            git remote set-url codeberg "https://${CODEBERG_TOKEN}@codeberg.org/${CODEBERG_ORG}/bd-coach-infra.git"
+          git push codeberg HEAD:main
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH deploy to Hostinger
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [[ -z "${DEPLOY_HOST}" ]]; then
+            echo "DEPLOY_HOST not set — skip deploy"
+            exit 0
+          fi
+          install -m 600 /dev/stdin ~/.ssh/deploy_key <<< "${DEPLOY_KEY}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${DEPLOY_USER}@${DEPLOY_HOST}" '
+            cd /opt/bd-coach/infra &&
+            git pull &&
+            docker compose -f compose/docker-compose.yml \
+              -f compose/docker-compose.hostinger.yml \
+              -f compose/docker-compose.slim.yml \
+              --env-file .env pull &&
+            docker compose -f compose/docker-compose.yml \
+              -f compose/docker-compose.hostinger.yml \
+              -f compose/docker-compose.slim.yml \
+              --env-file .env up -d
+          '

@@ -1,0 +1,63 @@
+{
+  "realm": "bd-coach",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "groups": [
+    { "name": "ceo", "path": "/ceo" },
+    { "name": "bd-usa", "path": "/bd-usa" },
+    { "name": "bd-eu", "path": "/bd-eu" },
+    { "name": "platform-team", "path": "/platform-team" }
+  ],
+  "users": [
+    {
+      "username": "ceo@example.org",
+      "email": "ceo@example.org",
+      "enabled": true,
+      "emailVerified": true,
+      "groups": ["/ceo"],
+      "credentials": [{ "type": "password", "value": "CHANGE_ME", "temporary": true }]
+    },
+    {
+      "username": "bd-usa@example.org",
+      "email": "bd-usa@example.org",
+      "enabled": true,
+      "emailVerified": true,
+      "groups": ["/bd-usa"],
+      "credentials": [{ "type": "password", "value": "CHANGE_ME", "temporary": true }]
+    },
+    {
+      "username": "bd-eu@example.org",
+      "email": "bd-eu@example.org",
+      "enabled": true,
+      "emailVerified": true,
+      "groups": ["/bd-eu"],
+      "credentials": [{ "type": "password", "value": "CHANGE_ME", "temporary": true }]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "librechat",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "REPLACE_IN_ENV",
+      "redirectUris": ["https://bd-coach.example.com/oauth/openid/callback"],
+      "webOrigins": ["https://bd-coach.example.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "n8n",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "REPLACE_IN_ENV",
+      "redirectUris": ["https://n8n.example.com/rest/oauth2-credential/callback"],
+      "standardFlowEnabled": true,
+      "protocol": "openid-connect"
+    }
+  ]
+}

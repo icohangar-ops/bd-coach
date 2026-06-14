@@ -1,0 +1,23 @@
+# Slim profile for 8 GB Hostinger VPS — skips observability + Rasa + Whisper.
+# Strongly recommend GROQ_API_KEY in .env when using slim mode.
+#
+# Usage: add -f compose/docker-compose.slim.yml to your compose command.
+
+services:
+  librechat:
+    depends_on: [mongo, postgres, redis, litellm]
+
+  openobserve:
+    profiles: [observability]
+
+  prometheus:
+    profiles: [observability]
+
+  grafana:
+    profiles: [observability]
+
+  rasa:
+    profiles: [full]
+
+  whisper:
+    profiles: [full]

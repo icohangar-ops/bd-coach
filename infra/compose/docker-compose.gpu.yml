@@ -1,0 +1,12 @@
+# Optional overlay — enable NVIDIA GPU for Ollama.
+# Usage: docker compose -f compose/docker-compose.yml -f compose/docker-compose.gpu.yml up -d
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

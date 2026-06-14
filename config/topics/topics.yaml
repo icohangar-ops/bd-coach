@@ -1,0 +1,117 @@
+# 15 conversational topics. Rasa NLU classifies utterance -> topic_id; LibreChat dispatches the tool.
+# Confidence < 0.7 falls through to LLM with master prompt only.
+
+version: 1.0
+topics:
+  - id: T01
+    name: Draft Weekly Report
+    triggers:
+      - "draft my weekly report"
+      - "generate this week's update"
+      - "what should I send the ceo"
+      - "weekly report"
+    tool: tool_draft_weekly_report
+    output: adaptive_card.weekly_submit_confirmation
+    scope: [USA_BD, EU_BD]
+
+  - id: T02
+    name: Points-To-Gate Coach
+    triggers:
+      - "what gets me to 25 this month"
+      - "am I on track for the gate"
+      - "month-end forecast"
+      - "points to gate"
+    tool: tool_points_to_gate
+    output: ranked_table
+    scope: [USA_BD, EU_BD]
+
+  - id: T03
+    name: Stale Deal Nudge
+    triggers: ["who haven't I touched", "stalled deals", "what needs follow-up"]
+    tool: tool_stale_deals
+    output: adaptive_card.stale_deal
+    scope: [USA_BD, EU_BD]
+
+  - id: T04
+    name: Commission Accrual
+    triggers: ["what's my commission", "how much have I earned", "ote tracker"]
+    tool: tool_commission_accrual
+    output: adaptive_card.commission_snapshot
+    scope: [USA_BD, EU_BD]
+
+  - id: T05
+    name: Log Meeting
+    triggers: ["log this meeting", "save transcript", "record outcome"]
+    tool: tool_log_meeting
+    output: confirmation
+    scope: [USA_BD, EU_BD]
+
+  - id: T06
+    name: Deal Brief
+    triggers: ["brief me on", "history with", "background on"]
+    tool: tool_deal_brief
+    output: executive_brief_1pager
+    scope: [CEO, USA_BD, EU_BD]
+
+  - id: T07
+    name: Draft Follow-up Email
+    triggers: ["email", "follow up with", "send to"]
+    tool: tool_draft_followup
+    output: email_draft_unsent
+    scope: [USA_BD, EU_BD]
+
+  - id: T08
+    name: CEO Exception Summary
+    triggers: ["what needs my attention", "exception view", "monday digest"]
+    tool: tool_ceo_exceptions
+    output: five_bullets_per_bd
+    scope: [CEO]
+
+  - id: T09
+    name: Pipeline-at-Risk
+    triggers: ["deals at risk", "what's slipping", "show me red items"]
+    tool: tool_pipeline_at_risk
+    output: table_sorted_by_exposure
+    scope: [CEO, USA_BD, EU_BD]
+
+  - id: T10
+    name: Year-end Projection
+    triggers: ["where will I land", "annual forecast", "ote projection"]
+    tool: tool_year_end_projection
+    output: chart_plus_tier_band
+    scope: [CEO, USA_BD, EU_BD]
+
+  - id: T11
+    name: Gate Miss Inquiry
+    triggers: ["why did", "miss", "explain march miss"]
+    tool: tool_gate_miss_inquiry
+    output: narrative_plus_remediation
+    scope: [CEO]
+
+  - id: T12
+    name: Performance Note Draft
+    triggers: ["draft improvement note", "step 1 letter", "salary review notice"]
+    tool: tool_performance_note
+    output: doc_draft_to_nextcloud
+    scope: [CEO]
+
+  - id: T13
+    name: Hygiene Report
+    triggers: ["crm hygiene", "how clean is the pipeline", "audit report"]
+    tool: tool_hygiene_report
+    output: score_plus_delinquent_list
+    scope: [CEO, USA_BD, EU_BD]
+
+  - id: T14
+    name: Help / Menu
+    triggers: ["help", "what can you do", "menu"]
+    tool: tool_help_menu
+    output: quick_reply_chips
+    scope: [CEO, USA_BD, EU_BD]
+
+  - id: T15
+    name: Escalate to CEO
+    triggers: ["tell the ceo", "flag this to ceo", "i need help"]
+    tool: tool_escalate_to_ceo
+    output: mattermost_card_to_ceo
+    scope: [USA_BD, EU_BD]

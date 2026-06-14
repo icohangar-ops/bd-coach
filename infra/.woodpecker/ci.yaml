@@ -1,0 +1,14 @@
+when:
+  - event: push
+    branch: main
+
+steps:
+  lint:
+    image: cytopia/yamllint:latest
+    commands:
+      - yamllint -s .
+
+  compose-validate:
+    image: docker:27
+    commands:
+      - docker compose -f compose/docker-compose.yml --env-file .env.example config -q

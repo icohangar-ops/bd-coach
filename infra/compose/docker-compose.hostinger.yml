@@ -1,0 +1,63 @@
+# Hostinger VPS overlay — Groq-primary LiteLLM, CPU-only, memory caps.
+#
+# Full stack (16 GB+ RAM):
+#   docker compose -f compose/docker-compose.yml -f compose/docker-compose.hostinger.yml up -d
+#
+# Slim stack (8 GB RAM — defers observability, uses smaller models):
+#   docker compose -f compose/docker-compose.yml \
+#     -f compose/docker-compose.hostinger.yml \
+#     -f compose/docker-compose.slim.yml up -d
+
+services:
+  litellm:
+    volumes:
+      - ../litellm/config.hostinger.yaml:/app/config.yaml:ro
+      - ../litellm/hooks:/app/hooks:ro
+      - ../../config/dlp:/dlp:ro
+
+  ollama:
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  librechat:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  baserow:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  nextcloud:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  mattermost:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  keycloak:
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  postgres:
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=100
+      -c work_mem=8MB
+    deploy:
+      resources:
+        limits:
+          memory: 1G

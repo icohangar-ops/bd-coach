@@ -1,0 +1,65 @@
+# LibreChat agent definition — BD Coach on LiteLLM + Keycloak OIDC.
+
+version: 1.2.0
+cache: true
+
+endpoints:
+  custom:
+    - name: BD Coach
+      apiKey: ${LITELLM_MASTER_KEY}
+      baseURL: http://litellm:4000/v1
+      models:
+        default: [bd-coach-ceo, bd-coach-bd]
+        fetch: false
+      titleConvo: true
+      modelDisplayLabel: BD Coach
+
+agents:
+  - id: bd-coach
+    name: BD Coach
+    description: AI sales operations assistant
+    instructions_file: /config/prompts/bd_coach.v1.0.md
+    persona_resolver:
+      claim: email
+      mapping_file: /config/personas/personas.yaml
+    tools:
+      - tool_draft_weekly_report
+      - tool_points_to_gate
+      - tool_stale_deals
+      - tool_commission_accrual
+      - tool_log_meeting
+      - tool_deal_brief
+      - tool_draft_followup
+      - tool_ceo_exceptions
+      - tool_pipeline_at_risk
+      - tool_year_end_projection
+      - tool_gate_miss_inquiry
+      - tool_performance_note
+      - tool_hygiene_report
+      - tool_help_menu
+      - tool_escalate_to_ceo
+    rag:
+      vector_store: qdrant
+      namespaces:
+        - bd_documents
+        - bd_reference
+        - kpi_usa
+        - kpi_eu
+    greeting: |
+      I'm BD Coach. I help you hit your number. What would you like to do —
+      review pipeline, draft your weekly report, or check your commission accrual?
+
+interface:
+  modelSelect: false
+  endpointsMenu: false
+  presets: false
+  customWelcome: "BD Coach"
+
+registration:
+  socialLogins: [openid]
+
+audit:
+  enabled: true
+  sink: postgres
+  table: audit.events
+  retention_days: 730

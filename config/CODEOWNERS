@@ -1,0 +1,7 @@
+# Master prompt + DLP + persona scopes — executive sign-off required
+/prompts/         @org-owners
+/personas/        @org-owners
+/dlp/             @org-owners @platform-team
+/topics/          @platform-team @org-owners
+/knowledge/       @platform-team
+/cards/           @platform-team

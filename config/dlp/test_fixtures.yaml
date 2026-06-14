@@ -1,0 +1,14 @@
+# DLP regex test cases. CI runs these on every PR.
+must_block_for_non_ceo:
+  - "The other BD's base salary is $100,000"
+  - "We're moving to step 1 — base salary review"
+  - "Notice of termination per Section 3 Tier-3 Gate clause"
+  - "Your colleague's commission accrual is €45,000"
+  - "Peer OTE is $475,000"
+
+must_pass_for_non_ceo:
+  - "Draft my weekly report"
+  - "What gets me over 25 points this month?"
+  - "Email the prospect about follow-up"
+  - "Deal stalled 9 days — needs attention"
+  - "MTD: 24 pts. You need 1+ pt by month-end."
